@@ -1,0 +1,8 @@
+FROM maven:3.9.9-eclipse-temurin-17
+WORKDIR /app
+
+COPY pom.xml ./
+COPY src ./src
+
+# Keep the container available to Watch if compilation fails.
+CMD ["sh", "-c", "mvn -B -ntp clean spring-boot:run || sleep infinity"]

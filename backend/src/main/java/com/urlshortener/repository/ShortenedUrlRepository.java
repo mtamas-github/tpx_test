@@ -28,19 +28,15 @@ public class ShortenedUrlRepository {
                 + "full_url TEXT NOT NULL, "
                 + "created_at TEXT NOT NULL"
                 + ")");
+        jdbc.execute("CREATE INDEX IF NOT EXISTS idx_shortened_urls_created_at "
+                + "ON shortened_urls (rtrim(created_at, 'Z') DESC, id DESC)");
     }
 
-    public boolean existsByAlias(String alias) {
-        Integer count = jdbc.queryForObject(
-                "SELECT COUNT(1) FROM shortened_urls WHERE alias = ?",
-                Integer.class,
-                alias);
-        return count != null && count > 0;
-    }
-
-    public void save(String alias, String fullUrl, Instant createdAt) {
-        jdbc.update("INSERT INTO shortened_urls (alias, full_url, created_at) VALUES (?, ?, ?)",
+    public boolean save(String alias, String fullUrl, Instant createdAt) {
+        var rows = jdbc.update("INSERT INTO shortened_urls (alias, full_url, created_at) VALUES (?, ?, ?) "
+                        + "ON CONFLICT(alias) DO NOTHING",
                 alias, fullUrl, createdAt.toString());
+        return rows > 0;
     }
 
     public Optional<String> findFullUrlByAlias(String alias) {
@@ -50,9 +46,15 @@ public class ShortenedUrlRepository {
         return results.stream().findFirst();
     }
 
-    public List<UrlListItem> findAll(String baseUrl) {
-        return jdbc.query("SELECT alias, full_url FROM shortened_urls",
-                urlListItemMapper(baseUrl));
+    public long count() {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM shortened_urls", Long.class);
+    }
+
+    public List<UrlListItem> findPage(String baseUrl, int size, long offset) {
+        // Instant's optional fractional seconds sort correctly after removing the UTC suffix.
+        return jdbc.query("SELECT alias, full_url FROM shortened_urls "
+                        + "ORDER BY rtrim(created_at, 'Z') DESC, id DESC LIMIT ? OFFSET ?",
+                urlListItemMapper(baseUrl), size, offset);
     }
 
     public boolean deleteByAlias(String alias) {

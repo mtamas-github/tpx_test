@@ -2,11 +2,11 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
 
 COPY . .
-RUN npm run build
+RUN npm test && npm run build
 
 # Production stage – serve with Nginx
 FROM nginx:1.25-alpine AS runtime

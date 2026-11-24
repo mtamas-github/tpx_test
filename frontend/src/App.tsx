@@ -4,8 +4,10 @@ import { ResultBanner } from './components/ResultBanner';
 import { UrlTable } from './components/UrlTable';
 
 export default function App() {
-  const { urls, loading, error, lastCreated, shorten, deleteUrl, clearLastCreated } =
-    useUrlShortener();
+  const {
+    urls, page, totalItems, totalPages, loading, error, lastCreated,
+    shorten, deleteUrl, goToPage, clearLastCreated,
+  } = useUrlShortener();
 
   return (
     <div className="app">
@@ -24,7 +26,7 @@ export default function App() {
           <h2 id="shorten-heading" className="card__title">
             Shorten a URL
           </h2>
-          <ShortenForm onSubmit={shorten} />
+          <ShortenForm onSubmit={shorten} disabled={loading} />
         </section>
 
         {lastCreated && (
@@ -40,8 +42,8 @@ export default function App() {
         <section className="card" aria-labelledby="list-heading">
           <h2 id="list-heading" className="card__title">
             All shortened URLs
-            {urls.length > 0 && (
-              <span className="badge">{urls.length}</span>
+            {totalItems > 0 && (
+              <span className="badge">{totalItems}</span>
             )}
           </h2>
 
@@ -51,6 +53,28 @@ export default function App() {
             </div>
           ) : (
             <UrlTable urls={urls} onDelete={deleteUrl} />
+          )}
+
+          {totalPages > 0 && (
+            <nav className="pagination" aria-label="URL pagination">
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={loading || page === 0}
+                onClick={() => void goToPage(page - 1)}
+              >
+                Previous
+              </button>
+              <span aria-live="polite">Page {page + 1} of {totalPages}</span>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={loading || page + 1 >= totalPages}
+                onClick={() => void goToPage(page + 1)}
+              >
+                Next
+              </button>
+            </nav>
           )}
         </section>
       </main>

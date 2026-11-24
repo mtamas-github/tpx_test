@@ -9,9 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class UrlShortenerServiceTests {
@@ -35,9 +32,22 @@ public class UrlShortenerServiceTests {
 
         ShortenUrlResponse response = service.shorten(request, BASE_URL);
 
-        assertNotNull(response.getAlias());
+        assertTrue(response.getAlias().matches("[a-zA-Z0-9]{7}"));
         assertEquals("https://example.com/test", response.getFullUrl());
-        assertTrue(response.getShortUrl().startsWith(BASE_URL + "/"));
+        assertEquals(BASE_URL + "/" + response.getAlias(), response.getShortUrl());
+        assertEquals("https://example.com/test", service.getFullUrl(response.getAlias()));
+    }
+
+    @Test
+    void shorten_WithBlankAlias_GeneratesAlias() {
+        var request = new ShortenUrlRequest();
+        request.setFullUrl("https://example.com/test");
+        request.setCustomAlias("   ");
+
+        var response = service.shorten(request, BASE_URL);
+
+        assertTrue(response.getAlias().matches("[a-zA-Z0-9]{7}"));
+        assertEquals("https://example.com/test", service.getFullUrl(response.getAlias()));
     }
 
     @Test
@@ -53,14 +63,52 @@ public class UrlShortenerServiceTests {
     }
 
     @Test
-    void getFullUrl_ReturnsExistingUrl() throws ExecutionException, InterruptedException {
+    void getFullUrl_ReturnsNormalizedUrl() {
         var request = new ShortenUrlRequest();
         request.setFullUrl("https://example.com");
         request.setCustomAlias("example");
         service.shorten(request, BASE_URL);
 
-        String fullUrl = CompletableFuture.supplyAsync(() -> service.getFullUrl("example")).get();
+        String fullUrl = service.getFullUrl("example");
 
-        assertEquals("https://example.com", fullUrl);
+        assertEquals("https://example.com/", fullUrl);
+    }
+
+    @Test
+    void delete_WithExistingAlias_RemovesUrlAndReturnsTrue() {
+        var request = new ShortenUrlRequest();
+        request.setFullUrl("https://example.com/test");
+        request.setCustomAlias("example");
+        service.shorten(request, BASE_URL);
+
+        assertTrue(service.delete("example"));
+
+        assertNull(service.getFullUrl("example"));
+        assertTrue(service.getPage(BASE_URL, 0, 10).items().isEmpty());
+        assertFalse(service.delete("example"));
+    }
+
+    @Test
+    void delete_WithMissingAlias_ReturnsFalse() {
+        assertFalse(service.delete("missing"));
+    }
+
+    @Test
+    void delete_WithExistingDeletedSuffixAlias_LeavesOtherUrlUnchanged() {
+        var request = new ShortenUrlRequest();
+        request.setFullUrl("https://example.com/test");
+        request.setCustomAlias("example");
+        service.shorten(request, BASE_URL);
+
+        var otherRequest = new ShortenUrlRequest();
+        otherRequest.setFullUrl("https://other.com/test");
+        otherRequest.setCustomAlias("example-deleted");
+        service.shorten(otherRequest, BASE_URL);
+
+        assertTrue(service.delete("example"));
+
+        assertNull(service.getFullUrl("example"));
+        assertEquals("https://other.com/test", service.getFullUrl("example-deleted"));
+        assertEquals(1, service.getPage(BASE_URL, 0, 10).totalItems());
     }
 }

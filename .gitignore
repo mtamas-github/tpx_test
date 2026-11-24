@@ -1,4 +1,5 @@
-# .NET
+# Backend build output and local databases
+backend/target/
 backend/**/bin/
 backend/**/obj/
 backend/**/*.db
