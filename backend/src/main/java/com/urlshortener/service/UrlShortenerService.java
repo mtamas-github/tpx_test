@@ -1,23 +1,23 @@
 package com.urlshortener.service;
 
+import com.urlshortener.exception.AliasGenerationException;
 import com.urlshortener.model.ShortenUrlRequest;
 import com.urlshortener.model.ShortenUrlResponse;
-import com.urlshortener.model.UrlListItem;
+import com.urlshortener.model.UrlPage;
 import com.urlshortener.repository.ShortenedUrlRepository;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
-import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
 
 @Service
 public class UrlShortenerService {
 
     private static final String ALIAS_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int GENERATED_ALIAS_LENGTH = 7;
+    private static final int MAX_ALIAS_GENERATION_ATTEMPTS = 10;
 
     private final ShortenedUrlRepository repository;
 
@@ -27,46 +27,60 @@ public class UrlShortenerService {
 
     public ShortenUrlResponse shorten(ShortenUrlRequest request, String baseUrl) {
         var fullUrl = normalizeUrl(request.getFullUrl());
-        var alias = request.getCustomAlias() == null || request.getCustomAlias().isBlank()
-                ? generateAlias()
-                : request.getCustomAlias().trim();
+        var customAlias = request.getCustomAlias();
+        var generate = customAlias == null || customAlias.isBlank();
 
-        if (!isValidAlias(alias)) {
-            throw new IllegalArgumentException("Alias may only contain letters, numbers, and hyphens (2–64 characters).");
+        if (!generate) {
+            customAlias = customAlias.trim();
+            if (!isValidAlias(customAlias)) {
+                throw new IllegalArgumentException("Alias may only contain letters, numbers, and hyphens (2–64 characters).");
+            }
         }
 
-        if (repository.existsByAlias(alias)) {
-            throw new IllegalStateException("The alias '" + alias + "' is already taken.");
+        var maxAttempts = generate ? MAX_ALIAS_GENERATION_ATTEMPTS : 1;
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            var alias = generate ? generateAlias() : customAlias;
+            if (repository.save(alias, fullUrl, Instant.now())) {
+                return new ShortenUrlResponse(baseUrl + "/" + alias, alias, fullUrl);
+            }
+
+            if (!generate) {
+                throw new IllegalStateException("The alias '" + alias + "' is already taken.");
+            }
         }
 
-        repository.save(alias, fullUrl, Instant.now());
-
-        return new ShortenUrlResponse(baseUrl + "/" + alias, alias, fullUrl);
+        throw new AliasGenerationException("Unable to generate an available alias. Please try again.");
     }
 
     public String getFullUrl(String alias) {
         return repository.findFullUrlByAlias(alias).orElse(null);
     }
 
-    public List<UrlListItem> getAll(String baseUrl) {
-        return repository.findAll(baseUrl);
+    public UrlPage getPage(String baseUrl, int page, int size) {
+        if (page < 0) {
+            throw new IllegalArgumentException("page must be 0 or greater.");
+        }
+        if (size < 1 || size > 100) {
+            throw new IllegalArgumentException("size must be between 1 and 100.");
+        }
+
+        var totalItems = repository.count();
+        var items = repository.findPage(baseUrl, size, (long) page * size);
+        var totalPages = (totalItems + size - 1) / size;
+        return new UrlPage(items, page, size, totalItems, totalPages);
     }
 
     public boolean delete(String alias) {
-        // TODO: Investigate odd delete behavior reported by clients.
-        var fullUrl = repository.findFullUrlByAlias(alias).orElse(null);
-        if (fullUrl == null) {
-            return false;
-        }
-
-        repository.save(alias + "-deleted", fullUrl, Instant.now());
-        repository.deleteByAlias(alias + "-deleted");
-        return true;
+        return repository.deleteByAlias(alias);
     }
 
     private static String generateAlias() {
-        // TODO: Implement alias generation.
-        return "";
+        var alias = new StringBuilder(GENERATED_ALIAS_LENGTH);
+        for (int i = 0; i < GENERATED_ALIAS_LENGTH; i++) {
+            int index = ThreadLocalRandom.current().nextInt(ALIAS_CHARS.length());
+            alias.append(ALIAS_CHARS.charAt(index));
+        }
+        return alias.toString();
     }
 
     private static boolean isValidAlias(String alias) {

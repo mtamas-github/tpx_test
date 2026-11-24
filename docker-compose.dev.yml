@@ -1,0 +1,79 @@
+name: snip-dev
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    init: true
+    environment:
+      DATABASE_PATH: /data/urlshortener.db
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+    volumes:
+      - maven-cache:/root/.m2
+      - url-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/urls?size=1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 90s
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./backend/src
+          target: /app/src
+          initial_sync: true
+        - action: sync+restart
+          path: ./backend/pom.xml
+          target: /app/pom.xml
+          initial_sync: true
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    init: true
+    environment:
+      API_PROXY_TARGET: http://api:8080
+    ports:
+      - "127.0.0.1:${DEV_WEB_PORT:-3100}:3000"
+    volumes:
+      - node-modules:/app/node_modules
+      - npm-cache:/root/.npm
+      - ./scripts:/scripts:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:3000/"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          initial_sync: true
+          ignore:
+            - node_modules/
+            - dist/
+            - package.json
+            - package-lock.json
+            - Dockerfile*
+        - action: sync+restart
+          path: ./frontend/package.json
+          target: /app/package.json
+          initial_sync: true
+        - action: sync+restart
+          path: ./frontend/package-lock.json
+          target: /app/package-lock.json
+          initial_sync: true
+
+volumes:
+  url-data:
+  maven-cache:
+  node-modules:
+  npm-cache:

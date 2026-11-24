@@ -182,7 +182,8 @@ input:disabled { opacity: 0.6; cursor: not-allowed; }
   cursor: pointer;
   transition: background 0.15s;
 }
-.btn-secondary:hover { background: #dbeafe; }
+.btn-secondary:hover:not(:disabled) { background: #dbeafe; }
+.btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-ghost {
   padding: 6px 10px;
@@ -290,6 +291,8 @@ input:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 .url-table {
   width: 100%;
+  min-width: 480px;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -317,6 +320,7 @@ input:disabled { opacity: 0.6; cursor: not-allowed; }
   color: var(--accent);
   text-decoration: none;
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 .short-url-link:hover { text-decoration: underline; }
 
@@ -330,6 +334,15 @@ input:disabled { opacity: 0.6; cursor: not-allowed; }
   font-size: 13px;
 }
 .actions-cell { text-align: right; width: 80px; }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  font-size: 13px;
+}
 
 /* ── Empty state ─────────────────────────────────── */
 .empty-state {

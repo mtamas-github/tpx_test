@@ -5,7 +5,7 @@ WORKDIR /app
 COPY pom.xml ./
 COPY src ./src
 
-RUN mvn -B package -DskipTests
+RUN mvn -B -ntp package
 
 # Runtime stage
 FROM eclipse-temurin:17-jre-jammy

@@ -32,7 +32,7 @@ describe('ShortenForm', () => {
   });
 
   it('calls onSubmit with fullUrl and no alias when alias is empty', async () => {
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const onSubmit = vi.fn().mockResolvedValue(true);
     render(<ShortenForm onSubmit={onSubmit} />);
     await userEvent.type(screen.getByLabelText(/long url/i), 'https://example.com');
     fireEvent.click(screen.getByRole('button', { name: /shorten url/i }));
@@ -40,7 +40,7 @@ describe('ShortenForm', () => {
   });
 
   it('calls onSubmit with customAlias when provided', async () => {
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const onSubmit = vi.fn().mockResolvedValue(true);
     render(<ShortenForm onSubmit={onSubmit} />);
     await userEvent.type(screen.getByLabelText(/long url/i), 'https://example.com');
     await userEvent.type(screen.getByLabelText(/custom alias/i), 'my-alias');
@@ -49,11 +49,16 @@ describe('ShortenForm', () => {
   });
 
   it('clears the form after successful submission', async () => {
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const onSubmit = vi.fn().mockResolvedValue(true);
     render(<ShortenForm onSubmit={onSubmit} />);
     const urlInput = screen.getByLabelText(/long url/i);
+    const aliasInput = screen.getByLabelText(/custom alias/i);
     await userEvent.type(urlInput, 'https://example.com');
+    await userEvent.type(aliasInput, 'my-alias');
     fireEvent.click(screen.getByRole('button', { name: /shorten url/i }));
-    await waitFor(() => expect(urlInput).toHaveValue(''));
+    await waitFor(() => {
+      expect(urlInput).toHaveValue('');
+      expect(aliasInput).toHaveValue('');
+    });
   });
 });

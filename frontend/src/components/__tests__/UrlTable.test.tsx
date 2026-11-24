@@ -18,12 +18,22 @@ describe('UrlTable', () => {
     render(<UrlTable urls={mockUrls} onDelete={vi.fn()} />);
     expect(screen.getByText('http://localhost:8080/abc')).toBeInTheDocument();
     expect(screen.getByText('http://localhost:8080/def')).toBeInTheDocument();
+    expect(screen.getByText('https://example.com')).toBeInTheDocument();
+    expect(screen.getByText('https://another.com/path')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'http://localhost:8080/abc' }))
+      .toHaveAttribute('href', 'http://localhost:8080/abc');
   });
 
   it('calls onDelete with the alias when delete is clicked', () => {
     const onDelete = vi.fn();
     render(<UrlTable urls={mockUrls} onDelete={onDelete} />);
-    fireEvent.click(screen.getAllByRole('button', { name: /delete/i })[0]);
-    expect(onDelete).toHaveBeenCalledWith('abc');
+    expect(onDelete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete abc' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete def' }));
+
+    expect(onDelete).toHaveBeenCalledTimes(2);
+    expect(onDelete).toHaveBeenNthCalledWith(1, 'abc');
+    expect(onDelete).toHaveBeenNthCalledWith(2, 'def');
   });
 });

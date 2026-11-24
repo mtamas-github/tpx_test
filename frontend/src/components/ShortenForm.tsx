@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 
 interface ShortenFormProps {
-  onSubmit: (fullUrl: string, customAlias?: string) => Promise<void>;
+  onSubmit: (fullUrl: string, customAlias?: string) => Promise<boolean>;
   disabled?: boolean;
 }
 
@@ -34,9 +34,11 @@ export function ShortenForm({ onSubmit, disabled }: ShortenFormProps) {
     setValidationError(null);
     setSubmitting(true);
     try {
-      await onSubmit(fullUrl.trim(), customAlias.trim() || undefined);
-      setFullUrl('');
-      setCustomAlias('');
+      const created = await onSubmit(fullUrl.trim(), customAlias.trim() || undefined);
+      if (created) {
+        setFullUrl('');
+        setCustomAlias('');
+      }
     } finally {
       setSubmitting(false);
     }
